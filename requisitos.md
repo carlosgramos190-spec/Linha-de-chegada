@@ -1,6 +1,9 @@
 # Linha de Chegada
 
 ## Objetivos
+Vamos usar um ESP32 para captar o movimento de quem passar por sua frente, também vamos utilizar um módulo sensor de detecção de som para quando o som do disparo que da o inicio da corrida for feito iniciar o cronometro, um módulo sensor de fotoresistor para quando algo passar por sua frente travar o cronometro, por fim iremos usar um laser para que seja possível visualizar quem passou primeiro.
+
+crie uma tela para que possamos ver o cronometro e os tempos que foram registrados, essa tela irá ficar hospedada em um servidor 
 
 
 ### Stack Tecnlógico
@@ -9,9 +12,14 @@
 - Frontend: HTML5, PHP, CSS, Tailwind CSS
 
 #### Regras de negócio (CORE)
-Tratar senhas de usuários com hash bcript
-O sistema deve ter uma página de históricos e manter sempre os logs de qualquer alteração feita por 
-qualquer usuário, para auditorias futuras.
+- Um sensor de movimento que registra o tempo de passagem de algo
+ Registrar quando algo passar 
+Anotar o tempo que foi registrado em ordem cronológica
+- Um microfone que recebe um som de disparo no inicio da corrida 
+<img width="1053" height="81" alt="image" src="https://github.com/user-attachments/assets/815a533f-9698-4479-a678-ce60eeda04cc" />
+
+
+
 
 ##### Regras Globais
 - Use sempre PDO para conexão e queries no MySQL para evitar SQL Injections
