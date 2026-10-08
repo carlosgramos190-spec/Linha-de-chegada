@@ -16,7 +16,7 @@ crie uma tela para que possamos ver o cronometro e os tempos que foram registrad
  Registrar quando algo passar 
 Anotar o tempo que foi registrado em ordem cronológica
 - Um microfone que recebe um som de disparo no inicio da corrida 
-<img width="1053" height="81" alt="image" src="https://github.com/user-attachments/assets/815a533f-9698-4479-a678-ce60eeda04cc" />
+
 
 
 
