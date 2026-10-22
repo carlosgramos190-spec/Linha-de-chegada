@@ -7,6 +7,7 @@ crie uma tela para que possamos ver o cronometro e os tempos que foram registrad
 
 
 ### Stack Tecnlógico
+- programação em c++ para ESP 32
 - Backend: PHP estruturado com sessões nativas
 - Banco de dados: MySQL (PDO para segurança)
 - Frontend: HTML5, PHP, CSS, Tailwind CSS
@@ -16,7 +17,16 @@ crie uma tela para que possamos ver o cronometro e os tempos que foram registrad
  Registrar quando algo passar 
 Anotar o tempo que foi registrado em ordem cronológica
 - Um microfone que recebe um som de disparo no inicio da corrida 
-
+Nome do caso de uso: Registrar tempo
+Identificador: SDM-01
+Ator principal: Sensor
+Ator secundário: N.A
+Resumo: Um sensor de movimento que registra o tempo de passagem de algo.
+Pré-condições: Iniciar o cronômetro
+Pós-condições: N.A
+Ações do Ator: Resposta do sistema
+Registrar quando algo passar:
+Anotar o tempo que foi registrado em ordem cronológica.
 
 
 
