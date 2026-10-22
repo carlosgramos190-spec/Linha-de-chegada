@@ -1,0 +1,94 @@
+/* Estilos Customizados - Linha de Chegada */
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --color-laser: #ef4444;
+  --color-accent: #10b981;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Fonte Digital de Cronômetro Esportivo */
+.font-digital {
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: 2px;
+}
+
+.font-brand {
+  font-family: 'Chakra Petch', sans-serif;
+}
+
+/* Efeito de feixe Laser pulsante */
+.laser-line {
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0) 0%, rgba(239, 68, 68, 1) 50%, rgba(239, 68, 68, 0) 100%);
+  box-shadow: 0 0 12px #ef4444, 0 0 20px #ef4444;
+  animation: laserPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes laserPulse {
+  0%, 100% { opacity: 0.7; transform: scaleY(1); }
+  50% { opacity: 1; transform: scaleY(1.8); }
+}
+
+/* Linha guia vertical para alinhamento da câmera do celular */
+.camera-crosshair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background-color: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.9);
+  z-index: 20;
+}
+
+.camera-crosshair::before,
+.camera-crosshair::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  width: 18px;
+  height: 2px;
+  background-color: #ef4444;
+}
+
+.camera-crosshair::before { top: 15%; }
+.camera-crosshair::after { bottom: 15%; }
+
+/* Animação suave para Toasts */
+@keyframes toastIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.toast-animate-in {
+  animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scrollbar estilizada */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #111827;
+}
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
