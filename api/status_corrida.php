@@ -31,10 +31,15 @@ try {
     }
 
     $tempoDecorridoMs = 0;
-    if ($corrida['status'] === 'em_andamento' && !empty($corrida['data_hora_inicio'])) {
-        $inicio = strtotime($corrida['data_hora_inicio']);
-        $agora = microtime(true);
-        $tempoDecorridoMs = max(0, (int)(($agora - $inicio) * 1000));
+    if ($corrida['status'] === 'em_andamento') {
+        if (!empty($corrida['observacoes']) && is_numeric($corrida['observacoes'])) {
+            $agoraEpochMs = (int)round(microtime(true) * 1000);
+            $tempoDecorridoMs = max(0, $agoraEpochMs - (int)$corrida['observacoes']);
+        } elseif (!empty($corrida['data_hora_inicio'])) {
+            $inicio = strtotime($corrida['data_hora_inicio']);
+            $agora = microtime(true);
+            $tempoDecorridoMs = max(0, (int)(($agora - $inicio) * 1000));
+        }
     } elseif ($corrida['status'] === 'finalizada') {
         $tempoDecorridoMs = (int)$corrida['tempo_total_ms'];
     }

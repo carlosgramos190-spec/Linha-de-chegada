@@ -1,8 +1,7 @@
 <?php
 /**
- * API: Iniciar Corrida
+ * API: Iniciar Corrida (Com Precisão de Milissegundos para Microfone do Celular/PC + ESP32)
  * Caso de Uso: MDA-01 (Microfone / Disparo de Largada)
- * Resumo: Recebe som de disparo no início da corrida e inicia cronômetro zerado.
  */
 
 require_once __DIR__ . '/../config/bd.php';
@@ -14,69 +13,83 @@ if (!$pdo) {
     responderJson(false, 'Erro de conexão com o banco de dados.', ['erro' => $db_error ?? 'Desconhecido'], 500);
 }
 
-// Aceita POST em formato JSON ou Form-Data
 $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
 
-$origem = isset($input['origem']) && in_array($input['origem'], ['microfone_esp32', 'manual_web']) 
-    ? $input['origem'] 
-    : 'microfone_esp32';
+$origemRecebida = $input['origem'] ?? 'microfone_esp32';
+// Mapeia para valores válidos do ENUM do banco mantendo identificação
+$origemBanco = in_array($origemRecebida, ['microfone_esp32', 'manual_web']) ? $origemRecebida : 'microfone_esp32';
 
 $titulo = !empty($input['titulo']) ? trim($input['titulo']) : 'Corrida #' . date('d/m/Y H:i:s');
+$epochInicioMs = (int)round(microtime(true) * 1000);
+$agora = date('Y-m-d H:i:s');
 
 try {
-    // Verifica se já existe uma corrida 'aguardando_largada'
+    // Evita duplo disparo se a corrida já iniciou há menos de 2 segundos (caso Celular e ESP32 disparem juntos)
+    $stmtAtiva = $pdo->query("SELECT * FROM `corridas` WHERE `status` = 'em_andamento' ORDER BY `id` DESC LIMIT 1");
+    $corridaAtiva = $stmtAtiva->fetch();
+    if ($corridaAtiva && !empty($corridaAtiva['observacoes']) && is_numeric($corridaAtiva['observacoes'])) {
+        $inicioAnteriorMs = (int)$corridaAtiva['observacoes'];
+        if (($epochInicioMs - $inicioAnteriorMs) < 2500) {
+            responderJson(true, 'Corrida já iniciada em sincronia.', [
+                'corrida_id'       => (int)$corridaAtiva['id'],
+                'status'           => 'em_andamento',
+                'epoch_inicio_ms'  => $inicioAnteriorMs,
+                'origem'           => $origemRecebida
+            ]);
+        }
+    }
+
     $stmt = $pdo->prepare("SELECT * FROM `corridas` WHERE `status` = 'aguardando_largada' ORDER BY `id` DESC LIMIT 1");
     $stmt->execute();
     $corridaExistente = $stmt->fetch();
 
-    $agora = date('Y-m-d H:i:s');
-
     if ($corridaExistente) {
-        $corridaId = $corridaExistente['id'];
+        $corridaId = (int)$corridaExistente['id'];
         $update = $pdo->prepare("
             UPDATE `corridas` 
             SET `status` = 'em_andamento', 
                 `data_hora_inicio` = :agora, 
-                `disparo_origem` = :origem 
+                `disparo_origem` = :origem,
+                `observacoes` = :epoch_ms
             WHERE `id` = :id
         ");
         $update->execute([
-            ':agora'  => $agora,
-            ':origem' => $origem,
-            ':id'     => $corridaId
+            ':agora'    => $agora,
+            ':origem'   => $origemBanco,
+            ':epoch_ms' => (string)$epochInicioMs,
+            ':id'       => $corridaId
         ]);
     } else {
-        // Encerra qualquer corrida que tenha ficado em andamento anterior
         $pdo->query("UPDATE `corridas` SET `status` = 'finalizada' WHERE `status` = 'em_andamento'");
 
-        // Cria nova corrida
         $insert = $pdo->prepare("
-            INSERT INTO `corridas` (`titulo`, `status`, `data_hora_inicio`, `disparo_origem`) 
-            VALUES (:titulo, 'em_andamento', :agora, :origem)
+            INSERT INTO `corridas` (`titulo`, `status`, `data_hora_inicio`, `disparo_origem`, `observacoes`) 
+            VALUES (:titulo, 'em_andamento', :agora, :origem, :epoch_ms)
         ");
         $insert->execute([
-            ':titulo' => $titulo,
-            ':agora'  => $agora,
-            ':origem' => $origem
+            ':titulo'   => $titulo,
+            ':agora'    => $agora,
+            ':origem'   => $origemBanco,
+            ':epoch_ms' => (string)$epochInicioMs
         ]);
         $corridaId = (int)$pdo->lastInsertId();
     }
 
-    // Registra evento de largada (t = 0 ms)
     $reg = $pdo->prepare("
         INSERT INTO `registros_tempo` (`corrida_id`, `posicao`, `atleta_identificador`, `tempo_ms`, `tempo_formatado`, `tipo_evento`, `origem_sensor`) 
         VALUES (:corrida_id, 0, 'Largada Geral', 0, '00:00.000', 'largada', :origem)
     ");
     $reg->execute([
         ':corrida_id' => $corridaId,
-        ':origem'     => $origem
+        ':origem'     => $origemBanco
     ]);
 
-    responderJson(true, 'Largada autorizada! Cronômetro iniciado zerado (Caso MDA-01).', [
+    responderJson(true, 'Largada disparada! Cronômetro iniciado em t = 0.000s (MDA-01).', [
         'corrida_id'       => $corridaId,
         'status'           => 'em_andamento',
         'data_hora_inicio' => $agora,
-        'origem'           => $origem
+        'epoch_inicio_ms'  => $epochInicioMs,
+        'origem'           => $origemRecebida
     ]);
 
 } catch (PDOException $e) {

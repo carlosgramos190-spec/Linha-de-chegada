@@ -1,9 +1,7 @@
 <?php
 /**
- * API: Registrar Tempo de Passagem / Linha de Chegada
- * Caso de Uso: SDM-01 (Sensor de Movimento / Fotoresistor LDR + Laser)
- * Resumo: Registra quando algo passar e anota o tempo em ordem cronológica.
- * Pré-condição: Cronômetro iniciado (corrida em andamento).
+ * API: Registrar Tempo de Passagem / Linha de Chegada (Alta Precisão em Milissegundos)
+ * Caso de Uso: SDM-01 (Sensor Fotoresistor LDR + Laser na Porta 4)
  */
 
 require_once __DIR__ . '/../config/bd.php';
@@ -15,11 +13,9 @@ if (!$pdo) {
     responderJson(false, 'Erro de conexão com o banco de dados.', ['erro' => $db_error ?? 'Desconhecido'], 500);
 }
 
-// Aceita POST JSON ou Form
 $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
 
 try {
-    // 1. Obtém a corrida em andamento
     $stmt = $pdo->prepare("
         SELECT * FROM `corridas` 
         WHERE `status` = 'em_andamento' 
@@ -29,25 +25,28 @@ try {
     $corrida = $stmt->fetch();
 
     if (!$corrida) {
-        responderJson(false, 'Não há nenhuma corrida em andamento no momento. Pré-condição não atendida (SDM-01).', [
+        responderJson(false, 'Não há corrida em andamento no momento. Dê a largada primeiro (MDA-01).', [
             'alerta' => 'Inicie o cronômetro antes de registrar passagens.'
         ], 400);
     }
 
     $corridaId = (int)$corrida['id'];
-    $inicioTimestamp = strtotime($corrida['data_hora_inicio']);
-    $agoraTimestamp = microtime(true);
+    $agoraEpochMs = (int)round(microtime(true) * 1000);
 
-    // 2. Determina o tempo decorrido em milissegundos
+    // Determina o tempo decorrido em milissegundos:
+    // 1. Se o ESP32 enviou tempo_ms > 0 (quando o próprio ESP32 deu a largada), usa o clock de hardware do ESP32.
+    // 2. Se a largada veio do Microfone do Celular/PC (tempo_ms == 0 no ESP32), calcula com precisão de 1ms pelo epoch_inicio_ms!
     if (isset($input['tempo_ms']) && is_numeric($input['tempo_ms']) && (int)$input['tempo_ms'] > 0) {
-        // Tempo de alta precisão vindo diretamente do ESP32
         $tempoMs = (int)$input['tempo_ms'];
+    } elseif (!empty($corrida['observacoes']) && is_numeric($corrida['observacoes'])) {
+        $inicioEpochMs = (int)$corrida['observacoes'];
+        $tempoMs = max(1, $agoraEpochMs - $inicioEpochMs);
     } else {
-        // Cálculo pelo relógio do servidor com frações de segundo
-        $tempoMs = (int)(($agoraTimestamp - $inicioTimestamp) * 1000);
+        $inicioTimestamp = strtotime($corrida['data_hora_inicio']);
+        $tempoMs = max(1, (int)((microtime(true) - $inicioTimestamp) * 1000));
     }
 
-    // 3. Verifica debounce (evita registros duplicados em fração de segundo pelo mesmo corredor)
+    // Verifica debounce (evita registros duplicados pelo mesmo corredor)
     $stmtUltimo = $pdo->prepare("
         SELECT `tempo_ms` FROM `registros_tempo` 
         WHERE `corrida_id` = :corrida_id AND `tipo_evento` = 'chegada' 
@@ -56,14 +55,13 @@ try {
     $stmtUltimo->execute([':corrida_id' => $corridaId]);
     $ultimo = $stmtUltimo->fetch();
 
-    $debounceMs = 500; // Mínimo de 500ms entre passagens consecutivas
-    if ($ultimo && ($tempoMs - (int)$ultimo['tempo_ms']) < $debounceMs) {
-        responderJson(false, 'Detecção ignorada por filtro de debounce (intervalo muito curto).', [
-            'delta_ms' => $tempoMs - (int)$ultimo['tempo_ms']
+    $debounceMs = 450;
+    if ($ultimo && abs($tempoMs - (int)$ultimo['tempo_ms']) < $debounceMs) {
+        responderJson(false, 'Detecção ignorada por filtro de debounce.', [
+            'delta_ms' => abs($tempoMs - (int)$ultimo['tempo_ms'])
         ], 429);
     }
 
-    // 4. Calcula a posição sequencial (1º, 2º, 3º...)
     $stmtCount = $pdo->prepare("
         SELECT COUNT(*) as total FROM `registros_tempo` 
         WHERE `corrida_id` = :corrida_id AND `tipo_evento` = 'chegada'
@@ -77,7 +75,6 @@ try {
         ? $input['origem'] 
         : 'ldr_laser_esp32';
 
-    // 5. Insere o tempo registrado em ordem cronológica
     $insert = $pdo->prepare("
         INSERT INTO `registros_tempo` 
         (`corrida_id`, `posicao`, `atleta_identificador`, `tempo_ms`, `tempo_formatado`, `tipo_evento`, `origem_sensor`) 
@@ -94,11 +91,10 @@ try {
 
     $registroId = (int)$pdo->lastInsertId();
 
-    // Atualiza o tempo_total_ms na corrida
     $updateCorrida = $pdo->prepare("UPDATE `corridas` SET `tempo_total_ms` = :tempo_ms WHERE `id` = :id");
     $updateCorrida->execute([':tempo_ms' => $tempoMs, ':id' => $corridaId]);
 
-    responderJson(true, "Tempo registrado com sucesso! Posição: {$posicao}º lugar.", [
+    responderJson(true, "Tempo registrado: {$posicao}º lugar ({$tempoFormatado})!", [
         'registro_id'     => $registroId,
         'corrida_id'      => $corridaId,
         'posicao'         => $posicao,
@@ -106,7 +102,7 @@ try {
         'tempo_ms'        => $tempoMs,
         'tempo_formatado' => $tempoFormatado,
         'origem'          => $origem,
-        'solicitar_foto'  => true // Sinaliza para o celular tirar a foto do Photo Finish
+        'solicitar_foto'  => true
     ]);
 
 } catch (PDOException $e) {

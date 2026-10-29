@@ -1,18 +1,17 @@
 <?php
 /**
- * Conexão com o Banco de Dados MySQL via PDO
+ * Conexão com o Banco de Dados MySQL via PDO (Otimizada para Tempo Real / Baixa Latência)
  * Linha de Chegada - Cronometragem Esportiva
  * 
- * Regra: Uso obrigatório de PDO com prepared statements para segurança contra SQL Injection.
+ * Otimizações aplicadas:
+ * - Uso de 127.0.0.1 em vez de localhost (elimina atraso de ~1s de resolução IPv6 no Windows)
+ * - Conexão persistente PDO (PDO::ATTR_PERSISTENT => true) para reutilizar socket TCP (< 0.5ms)
+ * - Sem session_start() bloqueante nas APIs de tempo real
  */
 
-// Inicia sessão PHP nativa se ainda não iniciada
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Configurações de conexão
-define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+// Configurações de conexão (127.0.0.1 evita delay de DNS IPv6 no Windows)
+$envHost = getenv('DB_HOST');
+define('DB_HOST', ($envHost && $envHost !== 'localhost') ? $envHost : '127.0.0.1');
 define('DB_PORT', getenv('DB_PORT') ?: '3306');
 define('DB_NAME', getenv('DB_NAME') ?: 'linha_de_chegada');
 define('DB_USER', getenv('DB_USER') ?: 'root');
@@ -20,7 +19,7 @@ define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_CHARSET', 'utf8mb4');
 
 /**
- * Obtém ou inicializa a conexão PDO com o MySQL
+ * Obtém ou inicializa a conexão PDO persistente com o MySQL
  * 
  * @return PDO
  * @throws PDOException
@@ -40,21 +39,20 @@ function getDBConnection(): PDO {
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false, // Previne SQL Injection a nível de driver nativo
-            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . DB_CHARSET
+            PDO::ATTR_EMULATE_PREPARES   => false,
+            PDO::ATTR_PERSISTENT         => true, // Reutiliza conexão TCP em tempo real
+            PDO::ATTR_TIMEOUT            => 2
         ];
 
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
-            // Se o erro for de banco inexistente (código 1049), tenta criá-lo automaticamente
             if ($e->getCode() == 1049) {
                 try {
                     $dsnSemBanco = sprintf('mysql:host=%s;port=%s;charset=%s', DB_HOST, DB_PORT, DB_CHARSET);
                     $pdoTemp = new PDO($dsnSemBanco, DB_USER, DB_PASS, $options);
                     $pdoTemp->exec("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
                     
-                    // Conecta novamente com o banco recém-criado
                     $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
                     inicializarTabelas($pdo);
                 } catch (PDOException $ex) {
@@ -71,8 +69,6 @@ function getDBConnection(): PDO {
 
 /**
  * Criação automática das tabelas essenciais caso ainda não existam
- * 
- * @param PDO $pdo
  */
 function inicializarTabelas(PDO $pdo): void {
     $sql = "
@@ -117,11 +113,9 @@ function inicializarTabelas(PDO $pdo): void {
     $pdo->exec($sql);
 }
 
-// Instância padrão para compatibilidade direta de scripts legados que usam $pdo
 try {
     $pdo = getDBConnection();
 } catch (Exception $e) {
-    // Em APIs pode ser tratado via JSON; em páginas via modal/toast
     $pdo = null;
     $db_error = $e->getMessage();
 }
