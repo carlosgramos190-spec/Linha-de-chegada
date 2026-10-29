@@ -58,6 +58,43 @@ include __DIR__ . '/includes/header.php';
 
   </div>
 
+  <!-- Microfone de Largada do Celular (Pico de Áudio em Tempo Real - MDA-01) -->
+  <div class="bg-gray-900/90 border border-sky-500/30 p-4 rounded-2xl space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">🎙️</span>
+        <div>
+          <h3 class="text-xs sm:text-sm font-bold text-white">Microfone de Largada do Celular (MDA-01)</h3>
+          <p class="text-[11px] text-sky-400 font-mono" id="cam-mic-status">Inicia o cronômetro automaticamente ao detectar o pico salvo</p>
+        </div>
+      </div>
+      <span class="text-xs px-2 py-1 rounded-lg bg-sky-950 text-sky-300 border border-sky-500/30 font-mono">
+        Pico: <strong id="cam-mic-atual">0</strong> / Dispara &ge; <strong id="cam-mic-limiar">35</strong>
+      </span>
+    </div>
+
+    <div class="relative w-full h-3 bg-gray-800 rounded-full overflow-hidden">
+      <div id="cam-mic-barra" class="h-full bg-gradient-to-r from-emerald-400 via-sky-500 to-red-500 transition-all duration-75" style="width: 0%"></div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <button onclick="CelularCamera.alternarMicLargada()" id="btn-cam-mic-toggle"
+              class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
+        🎤 Ativar Mic Largada
+      </button>
+      <button onclick="CelularCamera.gravarPicoLargada()" id="btn-cam-mic-gravar"
+              class="py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs transition">
+        🔴 Gravar Pico (3s)
+      </button>
+      <div class="col-span-2 sm:col-span-1 flex items-center gap-2 bg-gray-950 px-3 py-1.5 rounded-xl border border-gray-800">
+        <span class="text-[11px] text-gray-400 whitespace-nowrap">Limiar:</span>
+        <input type="range" id="cam-mic-slider" min="5" max="95" value="35"
+               oninput="CelularCamera.ajustarLimiarMic(this.value)"
+               class="w-full accent-sky-500">
+      </div>
+    </div>
+  </div>
+
   <!-- Controles da Câmera (Mobile-First Touch Friendly) -->
   <div class="bg-gray-900/90 border border-gray-800 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
     

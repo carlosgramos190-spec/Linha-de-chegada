@@ -72,6 +72,177 @@ include __DIR__ . '/includes/header.php';
     </div>
   </div>
 
+  <!-- Painel de Configuração de Sensibilidade do Microfone (Porta 5) e Sensor LDR (Porta 4) -->
+  <div class="rounded-3xl bg-gray-900/90 border border-gray-800 p-5 sm:p-6 shadow-xl space-y-5">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-800 pb-4">
+      <div>
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <span>🎚️ Configurações de Sensibilidade (ESP32)</span>
+          <span id="esp32-conn-badge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700 font-mono">Pronto para sincronizar</span>
+        </h3>
+        <p class="text-xs text-gray-400 mt-0.5">Ajuste o pico de áudio do Microfone (Porta 5) e a sensibilidade de corte do Sensor LDR (Porta 4).</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="esp32-ip-input" class="text-xs text-gray-400 whitespace-nowrap">IP do ESP32:</label>
+        <input type="text" id="esp32-ip-input" value="192.168.4.1" placeholder="Ex: 192.168.4.1 ou 192.168.1.120"
+               class="px-3 py-1.5 rounded-xl bg-gray-950 border border-gray-700 text-xs text-white font-mono w-40 focus:outline-none focus:border-sky-500">
+        <button onclick="SensibilidadeESP32.sincronizarLeitura()" class="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-gray-200 border border-gray-700 transition">
+          🔄 Ler ESP32
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+      <!-- 1. Configuração de Sensibilidade do Microfone Híbrido (Celular/PC + ESP32 Porta 5 - MDA-01) -->
+      <div class="p-5 rounded-2xl bg-gray-950/70 border border-sky-500/30 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-sky-950 border border-sky-500/40 flex items-center justify-center text-sky-400">
+              🎙️
+            </div>
+            <div>
+              <h4 class="font-bold text-sm text-white">1. Sensibilidade do Microfone (Celular/PC + ESP32)</h4>
+              <p class="text-[11px] text-sky-400 font-mono" id="ui-mic-status-esc">Modo Híbrido: Qual captar o pico primeiro inicia!</p>
+            </div>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded-lg bg-sky-950/90 text-sky-300 border border-sky-500/30 font-mono">
+            Pico: <strong id="ui-mic-pico-atual">0</strong> / 100
+          </span>
+        </div>
+
+        <!-- Barra de Pico de Áudio em Tempo Real (60fps) -->
+        <div class="bg-gray-900 p-3 rounded-xl border border-gray-800 space-y-2">
+          <div class="flex justify-between text-xs text-gray-400">
+            <span>Último Pico Gravado: <strong id="ui-mic-pico-gravado" class="text-white">0</strong></span>
+            <span>Dispara Largada em &ge; <strong id="ui-mic-limiar-label" class="text-sky-400">35</strong></span>
+          </div>
+          <div class="relative w-full h-3.5 bg-gray-800 rounded-full overflow-hidden">
+            <div id="ui-mic-barra" class="h-full bg-gradient-to-r from-emerald-400 via-sky-500 to-red-500 transition-all duration-75" style="width: 0%"></div>
+            <!-- Marcador visual do limiar -->
+            <div id="ui-mic-marcador-limiar" class="absolute top-0 bottom-0 w-0.5 bg-red-400 shadow-[0_0_6px_#ef4444]" style="left: 35%"></div>
+          </div>
+        </div>
+
+        <!-- Botões de Escuta do Microfone do Celular/PC e Gravar Pico (3s) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button onclick="SensibilidadeESP32.alternarEscutaMicLocal()" id="btn-ativar-mic-local"
+                  class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20">
+            <span>🎤 Ativar Mic do Celular/PC</span>
+          </button>
+
+          <button onclick="SensibilidadeESP32.gravarPicoMicrofone()" id="btn-gravar-pico-mic"
+                  class="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 active:scale-[0.99] text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-red-600/20">
+            <span>🔴 Gravar Pico de Áudio (3s)</span>
+          </button>
+        </div>
+
+        <!-- Controles de Sensibilidade do Microfone -->
+        <div class="space-y-3 pt-1">
+          <div>
+            <label class="block text-xs text-gray-300 mb-1 font-medium">
+              Limiar de Pico de Áudio (1 = mais sensível | 100 = exige som mais alto):
+            </label>
+            <input type="range" id="input-mic-range" min="1" max="100" value="35"
+                   oninput="SensibilidadeESP32.atualizarPreviewLimiarMic(this.value)"
+                   class="w-full accent-sky-500 cursor-pointer">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] text-gray-400 mb-1">Pico para Disparo (1-100)</label>
+              <input type="number" id="input-mic-limiar" min="1" max="100" value="35"
+                     oninput="SensibilidadeESP32.atualizarPreviewLimiarMic(this.value)"
+                     class="w-full px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-white text-sm font-mono">
+            </div>
+            <div>
+              <label class="block text-[11px] text-gray-400 mb-1">Filtro Debounce Mic (ms)</label>
+              <input type="number" id="input-mic-debounce" min="200" max="10000" value="3000"
+                     class="w-full px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-white text-sm font-mono">
+            </div>
+          </div>
+
+          <button onclick="SensibilidadeESP32.salvarMicrofone()"
+                  class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs sm:text-sm transition">
+            💾 Salvar Sensibilidade do Microfone
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Configuração de Sensibilidade do Sensor LDR (Porta 4 - SDM-01) -->
+      <div class="p-5 rounded-2xl bg-gray-950/70 border border-amber-500/30 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-amber-950 border border-amber-500/40 flex items-center justify-center text-amber-400">
+              🔦
+            </div>
+            <div>
+              <h4 class="font-bold text-sm text-white">2. Sensibilidade do Sensor LDR (Chegada)</h4>
+              <p class="text-[11px] text-amber-400 font-mono">Porta 4 (GPIO 4) • Caso SDM-01</p>
+            </div>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded-lg bg-amber-950/90 text-amber-300 border border-amber-500/30 font-mono">
+            Corte: <strong id="ui-ldr-corte-atual">0</strong>%
+          </span>
+        </div>
+
+        <!-- Barra de Corte do LDR -->
+        <div class="bg-gray-900 p-3 rounded-xl border border-gray-800 space-y-2">
+          <div class="flex justify-between text-xs text-gray-400">
+            <span>Último Corte Gravado: <strong id="ui-ldr-corte-gravado" class="text-white">0%</strong></span>
+            <span>Marca Tempo em &ge; <strong id="ui-ldr-sens-label" class="text-amber-400">30%</strong></span>
+          </div>
+          <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
+            <div id="ui-ldr-barra" class="h-full bg-gradient-to-r from-emerald-500 to-amber-500 transition-all duration-200" style="width: 30%"></div>
+          </div>
+        </div>
+
+        <!-- Botão Calibrar / Gravar Corte do LDR -->
+        <button onclick="SensibilidadeESP32.calibrarLdr()" id="btn-calibrar-ldr"
+                class="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20">
+          <span>🎯 Gravar Corte do Laser no LDR Agora (3 Segundos)</span>
+        </button>
+
+        <!-- Controles de Sensibilidade do LDR -->
+        <div class="space-y-3 pt-1">
+          <div>
+            <label class="block text-xs text-gray-300 mb-1 font-medium">
+              Sensibilidade de Corte do LDR (1% = super rápido/sensível | 100% = corte mais longo):
+            </label>
+            <input type="range" id="input-ldr-range" min="1" max="100" value="30"
+                   oninput="document.getElementById('input-ldr-sens').value=this.value; document.getElementById('ui-ldr-sens-label').textContent=this.value+'%';"
+                   class="w-full accent-amber-500 cursor-pointer">
+          </div>
+
+          <div class="grid grid-cols-3 gap-2.5">
+            <div>
+              <label class="block text-[11px] text-gray-400 mb-1">Sensibilidade (%)</label>
+              <input type="number" id="input-ldr-sens" min="1" max="100" value="30"
+                     oninput="document.getElementById('input-ldr-range').value=this.value; document.getElementById('ui-ldr-sens-label').textContent=this.value+'%';"
+                     class="w-full px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-white text-sm font-mono">
+            </div>
+            <div>
+              <label class="block text-[11px] text-gray-400 mb-1">Limiar ADC</label>
+              <input type="number" id="input-ldr-adc" min="10" max="4090" value="2200"
+                     class="w-full px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-white text-sm font-mono">
+            </div>
+            <div>
+              <label class="block text-[11px] text-gray-400 mb-1">Debounce (ms)</label>
+              <input type="number" id="input-ldr-debounce" min="100" max="10000" value="600"
+                     class="w-full px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-white text-sm font-mono">
+            </div>
+          </div>
+
+          <button onclick="SensibilidadeESP32.salvarLdr()"
+                  class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs sm:text-sm transition">
+            💾 Salvar Sensibilidade do LDR
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Cards de Arquitetura e Sensores Conectados -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     

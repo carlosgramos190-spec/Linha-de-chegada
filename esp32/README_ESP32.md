@@ -27,10 +27,10 @@ Este guia detalha as ligações elétricas, pinagem e calibração dos sensores 
                       |      ESP32        |
                       +-------------------+
   (Disparo Largada)   |                   |
-  Módulo Som [DO] --->| GPIO 4            |
+  Módulo Som [DO] --->| GPIO 5 (Porta 5)  |
                       |                   |
   (Linha de Chegada)  |                   |
-  LDR [Divisor 10k] ->| GPIO 34 (ADC1)    |
+  Sensor LDR -------->| GPIO 4 (Porta 4)  |
   Diodo Laser [+] --->| GPIO 18 (ou 3.3V) |
                       |                   |
   LED Status (Verde) -| GPIO 2            |
